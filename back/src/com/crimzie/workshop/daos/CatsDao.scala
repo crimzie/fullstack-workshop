@@ -1,32 +1,34 @@
-package com.crimzie.workshop.controllers
+package com.crimzie.workshop.daos
 
+import cats.effect.Async
 import com.crimzie.workshop.model._
-import monix.eval.{MVar, Task}
+import monix.eval.MVar
 import monix.execution.Scheduler.Implicits.global
-import monix.execution.schedulers.CanBlock.permit
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
+import scala.language.{higherKinds, postfixOps}
 
-object CatsDao {
-  private val mem: MVar[Map[String ## User, Seq[Cat]]] =
-    MVar(Map(
-      "user".tagged[User] -> Seq(
-        Cat("01" ## Id, "Fluffy" ## Name, "White" ## Color, 3 ## Size),
-      )) withDefaultValue Seq.empty).runSyncUnsafe(1 second)
+trait CatsDao[F[_]] {
+  val list: String ## User => F[Seq[Cat]]
+  val add: (String ## User, Cat) => F[Seq[Cat]]
+  val remove: (String ## User, String ## Id) => F[Seq[Cat]]
+}
 
-  val list: String ## User => Task[Seq[Cat]] =
-    user => mem.read map { _ (user) }
+class CatsMemDao[F[_] : Async](mem: MVar[Map[String ## User, Seq[Cat]]])
+  extends CatsDao[F] {
+  val list: String ## User => F[Seq[Cat]] =
+    user => mem.read.map { _ (user) }.to[F]
 
-  val add: (String ## User, Cat) => Task[Unit] =
-    (user, cat) => for {
+  val add: (String ## User, Cat) => F[Seq[Cat]] =
+    (user, cat) => (for {
       m <- mem.take
-      _ <- mem put m.updated(user, m(user).filterNot { _.id == cat.id } :+ cat)
-    } yield ()
+      u = m.updated(user, m(user).filterNot { _.id == cat.id } :+ cat)
+      _ <- mem put u
+    } yield u(user)).to[F]
 
-  val remove: (String ## User, String ## Id) => Task[Unit] =
-    (user, id) => for {
+  val remove: (String ## User, String ## Id) => F[Seq[Cat]] =
+    (user, id) => (for {
       m <- mem.take
-      _ <- mem put m.updated(user, m(user).filterNot { _.id == id })
-    } yield ()
+      u = m.updated(user, m(user).filterNot { _.id == id })
+      _ <- mem put u
+    } yield u(user)).to[F]
 }
