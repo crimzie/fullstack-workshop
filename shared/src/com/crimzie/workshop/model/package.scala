@@ -8,12 +8,10 @@ package object model {
 
   type ##[A, T] = A with Tag[T]
 
-  def taggedEncoder[A, T](
-      implicit enc: Encoder[A]): Encoder[A ## T] =
+  def taggedEncoder[A, T](implicit enc: Encoder[A]): Encoder[A ## T] =
     (a: A ## T) => enc(a.asInstanceOf[A])
 
-  def taggedDecoder[A, T](
-      implicit dec: Decoder[A]): Decoder[A ## T] =
+  def taggedDecoder[A, T](implicit dec: Decoder[A]): Decoder[A ## T] =
     (c: HCursor) => c.as[A].map(_.tagged[T])
 
   implicit class WithTag[A](private val v: A) extends AnyVal {

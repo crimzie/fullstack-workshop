@@ -9,9 +9,7 @@ import monix.eval.Task
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class ApiEndpoints(
-    host: String,
-    timeout: FiniteDuration)
+class ApiEndpoints(host: String, timeout: FiniteDuration)
   extends Endpoints[Task](
     host,
     AsyncHttpClientMonixBackend(SttpBackendOptions(timeout, None)))

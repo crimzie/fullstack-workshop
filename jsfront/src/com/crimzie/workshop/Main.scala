@@ -1,72 +1,40 @@
 package com.crimzie.workshop
 
-import com.crimzie.workshop.controllers.{CatsController, UIHandles}
+import cats.effect.IO
+import com.crimzie.workshop.components.CatsComponents
 import com.crimzie.workshop.model._
-import com.crimzie.workshop.services.ApiClientImpl
-import org.scalajs.dom.html
-import scalatags.JsDom.all._
+import com.crimzie.workshop.services.ApiEndpoints
+import monix.execution.Scheduler.Implicits.global
+import outwatch.dom._
+import outwatch.dom.dsl._
 
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
-import scala.util.Random
 
 @JSExportTopLevel("Main")
-object Main extends UIHandles {
-  val controller = new CatsController(ApiClientImpl, this)
-
-  val userDisp: html.Div = div().render
-  val userChangeFld: html.Input = input(`type` := "text").render
-  val userChangeBtn: html.Button = button("login").render
-  userChangeBtn.onclick = { _ =>
-    if (userChangeFld.value.nonEmpty)
-      controller.switchUser(userChangeFld.value ## User)
-  }
-
-  private def currentUsr: String ## User = userDisp.textContent ## User
-
-  val listDisp: html.UList = ul().render
-  val listAddNameFld: html.Input = input(`type` := "text").render
-  val listAddColorFld: html.Input = input(`type` := "text").render
-  val listAddSizeFld: html.Input = input(`type` := "text").render
-  val listAddBtn: html.Button = button("+").render
-  listAddBtn.onclick = { _ =>
-    if (listAddNameFld.value.nonEmpty &&
-      listAddColorFld.value.nonEmpty &&
-      listAddSizeFld.value.nonEmpty) controller.addCat(currentUsr, Cat(
-      Random.nextInt.toString ## Id,
-      listAddNameFld.value ## Name,
-      listAddColorFld.value ## Color,
-      listAddSizeFld.value.toInt ## Size))
-  }
-
-  val userUi = div(userDisp, userChangeFld, userChangeBtn)
-  val listUi =
-    div(listDisp,
-      br(),
-      "Name: ",
-      listAddNameFld,
-      "Color: ",
-      listAddColorFld,
-      "Size: ",
-      listAddSizeFld,
-      listAddBtn)
-
+object Main {
   @JSExport
-  def run(doc: html.Document): Unit = doc.body = body(userUi, listUi).render
-
-  override def updateUsername(name: String ## User): Unit =
-    userDisp.textContent = name
-
-  override def updateList(list: Seq[Cat]): Unit = {
-    val ns = listDisp.childNodes
-    if (ns.length > 0)
-      0 until ns.length map { ns(_) } foreach { listDisp.removeChild }
-    list foreach { c =>
-      val removeBtn = button("-").render
-      removeBtn.onclick = { _ =>
-        controller.removeCat(currentUsr, c.id)
+  def main(args: Array[String]): Unit =
+    (for {
+      _ <- IO.unit
+      endpoints = new ApiEndpoints[IO]
+      user <- Handler.create[String ## User]
+      user2cats <- endpoints.pipe(_.listCats, Nil)
+      _ <- user2cats <-- user
+      add <- Handler.create[Cat] map {
+        _ transformSource { _.withLatestFrom(user) { (c, u) => u -> c } }
       }
-      listDisp appendChild
-        li(s"${c.name}: ${c.color}, ${c.size}", removeBtn).render
-    }
-  }
+      withNewCat <- endpoints.pipe(_.addCat, Nil)
+      _ <- withNewCat <-- add
+      remove <- Handler.create[String ## Id] map {
+        _ transformSource { _.withLatestFrom(user) { (c, u) => u -> c } }
+      }
+      withoutCat <- endpoints.pipe(_.removeCat, Nil)
+      _ <- withoutCat <-- remove
+      withUpdCat <- endpoints.pipe(_.updateCat, Nil)
+      catsList = Observable.merge(user2cats, withNewCat, withoutCat, withUpdCat)
+      userCmp <- CatsComponents.mkUserCmp[IO](user)
+      listCmp = CatsComponents.mkListCmp(catsList, remove)
+      addCatCmp <- CatsComponents.mkAddCatCmp[IO](add)
+      _ <- OutWatch.renderInto("#main", div(userCmp, listCmp, addCatCmp))
+    } yield {}).unsafeRunSync
 }

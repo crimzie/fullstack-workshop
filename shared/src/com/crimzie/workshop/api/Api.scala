@@ -20,17 +20,17 @@ trait Api extends Endpoints with JsonEntitiesFromCodec {
       post(
         catsPath / "add",
         jsonRequest[(String ## User, Cat)]()),
-      emptyResponse())
+      jsonResponse[Seq[Cat]]())
   val updateCat =
     endpoint(
       post(
         catsPath / "update",
         jsonRequest[(String ## User, String ## Id, Cat)]()),
-      emptyResponse())
+      jsonResponse[Seq[Cat]]())
   val removeCat =
     endpoint(
       post(
         catsPath / "remove",
         jsonRequest[(String ## User, String ## Id)]()),
-      emptyResponse())
+      jsonResponse[Seq[Cat]]())
 }

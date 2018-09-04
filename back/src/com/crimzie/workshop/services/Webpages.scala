@@ -8,8 +8,10 @@ object Webpages {
       head(
         meta(charset := "UTF-8"),
         tag("title")("Full-stack Scala"),
-        script(src := "js/front.js"),
       ),
-      body(onload := "Main.run(document)"),
+      body(
+        div(id := "main"),
+        script(src := "js/sbt.js"),
+      ),
     ).render
 }

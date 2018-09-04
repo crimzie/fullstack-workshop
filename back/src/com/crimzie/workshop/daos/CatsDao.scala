@@ -8,7 +8,7 @@ import monix.execution.schedulers.CanBlock.permit
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-object CatsController {
+object CatsDao {
   private val mem: MVar[Map[String ## User, Seq[Cat]]] =
     MVar(Map(
       "user".tagged[User] -> Seq(
