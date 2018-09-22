@@ -1,6 +1,15 @@
+import java.io
+import java.util.zip.ZipInputStream
+
+import ammonite.ops
 import mill._
+import mill.define.Target
 import mill.scalajslib._
 import mill.scalalib._
+import mill.util.{Ctx, Loose}
+import ujson.Js
+
+import scala.collection.mutable
 
 trait Module extends ScalaModule {
   override def scalacOptions: Target[Seq[String]] =
@@ -97,4 +106,130 @@ object jsfront extends JsModule {
       ivy"org.julienrf::endpoints-xhr-client-circe::$endpointsVersion",
       ivy"io.github.outwatch::outwatch::$outwatchVersion",
     )
+
+  def webpackVersion: Target[String] = "4.17.1"
+
+  def webpackCliVersion: Target[String] = "3.1.0"
+
+  def webpackDevServerVersion: Target[String] = "3.1.7"
+
+  def webpack = T {
+
+  }
+
+  def fastOptWp = T {
+    val outjs = fastOpt().path
+
+    ops.cp(outjs, Ctx.taskCtx.dest / outjs.segments.last)
+    
+    case class JsDeps(
+        compileDependencies: List[(String, String)],
+        compileDevDependencies: List[(String, String)]) {
+      def ++(that: JsDeps): JsDeps =
+        JsDeps(
+          compileDependencies ++ that.compileDependencies,
+          compileDevDependencies ++ that.compileDevDependencies)
+    }
+
+    object JsDeps {
+      def apply(json: mutable.Map[String, Js.Value]): JsDeps = {
+        def read(key: String): List[(String, String)] =
+          json.get(key).fold(List.empty[(String, String)]) {
+            _.arr.flatMap{
+              _.obj.headOption.map { case (s, v) => s -> v.str }
+            }.toList
+          }
+
+        JsDeps(
+          read("compileDependencies") ++ read("compile-dependencies"),
+          read("compileDevDependencies") ++ read("compile-devDependencies"))
+      }
+    }
+
+    val cfg = "webpack.config.js"
+    
+    ops.write(
+      Ctx.taskCtx.dest / cfg,
+      "module.exports = " + Js.Obj(
+        "mode" -> "development",
+        "devtool" -> "source-map",
+        "entry" -> (Ctx.taskCtx.dest / outjs.segments.last).toString,
+        "output" -> Js.Obj(
+          "path" -> Ctx.taskCtx.dest.toString,
+          "filename" -> "out-bundle.js")).render())
+
+    val jsDeps: JsDeps = {
+      val jars: Agg[PathRef] =
+        Lib.resolveDependencies(
+          scalaWorker.repositories,
+          resolveCoursierDependency().apply(_),
+          transitiveIvyDeps() ++ ivyDeps(),
+          sources = false,
+          Some(mapDependencies())).asSuccess.get.value
+      jars map { _.path.toIO } flatMap { x =>
+        def read(
+            in: ZipInputStream,
+            buffer: Array[Byte] = new Array[Byte](8192),
+            out: io.ByteArrayOutputStream =
+            new io.ByteArrayOutputStream)
+        : io.ByteArrayOutputStream = {
+          val byteCount = in.read(buffer)
+          if (byteCount >= 0) {
+            out.write(buffer, 0, byteCount)
+            read(in, buffer, out)
+          } else out
+        }
+
+        val stream: ZipInputStream =
+          new ZipInputStream(
+            new io.BufferedInputStream(new io.FileInputStream(x)))
+        val deps: Seq[JsDeps] =
+          Iterator.continually(stream.getNextEntry)
+            .takeWhile { _ != null }
+            .collect {
+              case z if z.getName == "NPM_DEPENDENCIES" =>
+                JsDeps(ujson.read(read(stream).toString).obj)
+              case z if z.getName.endsWith(".js") &&
+                !z.getName.startsWith("scala/") =>
+                ops.write(Ctx.taskCtx.dest / z.getName, read(stream).toString)
+                JsDeps(Nil, Nil)
+            }
+            .to[Seq]
+        stream.close()
+        deps
+      } reduce { _ ++ _ }
+    }
+
+    val compileDeps = jsDeps.compileDependencies
+    val compileDevDeps =
+      jsDeps.compileDevDependencies ++ Seq(
+        "webpack" -> webpackVersion(),
+        "webpack-cli" -> webpackCliVersion(),
+        "webpack-dev-server" -> webpackDevServerVersion(),
+        "source-map-loader" -> "0.2.3")
+    ops.write(
+      Ctx.taskCtx.dest / "package.json",
+      Js.Obj(
+        "dependencies" -> compileDeps,
+        "devDependencies" -> compileDevDeps).render())
+
+    ops.%%(
+      "npm",
+      "install")(Ctx.taskCtx.dest)
+
+    ops.%%(
+      "node",
+      Ctx.taskCtx.dest / "node_modules" / "webpack" / "bin" / "webpack",
+      "--bail",
+      "--profile",
+      "--json",
+      "--config",
+      cfg)(Ctx.taskCtx.dest)
+
+    PathRef(Ctx.taskCtx.dest)
+  }
+
+  def fullOptWp = T {
+
+  }
 }

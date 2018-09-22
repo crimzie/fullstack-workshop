@@ -11,7 +11,7 @@ object Webpages {
       ),
       body(
         div(id := "main"),
-        script(src := "js/sbt.js"),
+        script(src := "js/main.js"),
       ),
     ).render
 }

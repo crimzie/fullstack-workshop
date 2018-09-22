@@ -17,13 +17,7 @@ object FileServer {
       Directives.get {
         Directives.complete(HttpEntity(
           ContentTypes.`application/json`,
-          file"out/jsfront/fastOpt/dest/out.js".contentAsString))
-      }
-    } ~ Directives.path("js" / "sbt.js") {
-      Directives.get {
-        Directives.complete(HttpEntity(
-          ContentTypes.`application/json`,
-          file"../endpoints-sbt-check/target/scala-2.12/scalajs-bundler/main/endpoints-sbt-check-fastopt-bundle.js".contentAsString))
+          file"out/jsfront/fastOptWp/dest/out-bundle.js".contentAsString))
       }
     }
 }
