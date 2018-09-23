@@ -31,19 +31,6 @@ object CatsClient {
       size ## Size))
 
   @JSExport
-  def updateCat(
-      user: String,
-      id: String,
-      name: String,
-      color: String,
-      size: Int): Thenable[Seq[Cat]] =
-    JSApiEndpoints.updateCat(user ## User, id ## Id, Cat(
-      id ## Id,
-      name ## Name,
-      color ## Color,
-      size ## Size))
-
-  @JSExport
   def removeCat(user: String, id: String): Thenable[Seq[Cat]] =
     JSApiEndpoints.removeCat(user ## User, id ## Id)
 }

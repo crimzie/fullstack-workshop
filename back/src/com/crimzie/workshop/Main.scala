@@ -18,7 +18,7 @@ object Main extends App {
   implicit val materializer: ActorMaterializer = ActorMaterializer()
   for {
     mem <- MVar(Map(
-      "user".tagged[User] -> Seq(
+      "user".tag[User] -> Seq(
         Cat("01" ## Id, "Fluffy" ## Name, "White" ## Color, 3 ## Size),
       )) withDefaultValue Seq.empty).runAsync
     catsDao = new CatsMemDao[Task](mem)

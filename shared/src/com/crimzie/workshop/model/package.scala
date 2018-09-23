@@ -4,46 +4,61 @@ import io.circe.{Decoder, Encoder, HCursor}
 
 package object model {
 
-  sealed protected trait Tag[T]
+  sealed trait Tag[T]
 
-  type ##[A, T] = A with Tag[T]
-
-  def taggedEncoder[A, T](implicit enc: Encoder[A]): Encoder[A ## T] =
-    (a: A ## T) => enc(a.asInstanceOf[A])
-
-  def taggedDecoder[A, T](implicit dec: Decoder[A]): Decoder[A ## T] =
-    (c: HCursor) => c.as[A].map(_.tagged[T])
+  sealed trait CanTag[T]
 
   implicit class WithTag[A](private val v: A) extends AnyVal {
-    def tagged[T]: A ## T = v.asInstanceOf[A ## T]
+    def ##[T](t: T)(implicit ev: CanTag[A with Tag[T]]): A with Tag[T] =
+      v.asInstanceOf[A with Tag[T]]
 
-    def ##[T](u: T): A ## T = v.asInstanceOf[A ## T]
+    def tag[T](implicit ev: CanTag[A with Tag[T]]): A with Tag[T] =
+      v.asInstanceOf[A with Tag[T]]
   }
+
+  def taggedEncDec[A, T](
+      implicit
+      enc: Encoder[A],
+      dec: Decoder[A],
+      ev: CanTag[A with Tag[T]],
+  ): (Encoder[A with Tag[T]], Decoder[A with Tag[T]]) =
+    ((a: A with Tag[T]) => enc(a.asInstanceOf[A]),
+      (c: HCursor) => c.as[A].map(_.tag[T]))
 
   sealed trait User
 
+  type UserStr = String with Tag[User]
+  val User: User = new User {}
+  implicit val userTag: CanTag[UserStr] = new CanTag[UserStr] {}
+  implicit lazy val (userEnc, userDec) = taggedEncDec[String, User]
+
   sealed trait Id
+
+  type IdStr = String with Tag[Id]
+  val Id: Id = new Id {}
+  implicit val idTag: CanTag[IdStr] = new CanTag[IdStr] {}
+  implicit lazy val (idEnc, idDec) = taggedEncDec[String, Id]
 
   sealed trait Name
 
+  type NameStr = String with Tag[Name]
+  val Name: Name = new Name {}
+  implicit val nameTag: CanTag[NameStr] = new CanTag[NameStr] {}
+  implicit lazy val (nameEnc, nameDec) = taggedEncDec[String, Name]
+
   sealed trait Color
+
+  type ColorStr = String with Tag[Color]
+  val Color: Color = new Color {}
+  implicit val colorTag: CanTag[ColorStr] = new CanTag[ColorStr] {}
+  implicit lazy val (colorEnc, colorDec) = taggedEncDec[String, Color]
 
   sealed trait Size
 
-  val User: User = new User {}
-  val Id: Id = new Id {}
-  val Name: Name = new Name {}
-  val Color: Color = new Color {}
   val Size: Size = new Size {}
-
-  implicit val stuEnc: Encoder[String ## User] = taggedEncoder[String, User]
-  implicit val stuDec: Decoder[String ## User] = taggedDecoder[String, User]
-  implicit val stiEnc: Encoder[String ## Id] = taggedEncoder[String, Id]
-  implicit val stiDec: Decoder[String ## Id] = taggedDecoder[String, Id]
-  implicit val stnEnc: Encoder[String ## Name] = taggedEncoder[String, Name]
-  implicit val stnDec: Decoder[String ## Name] = taggedDecoder[String, Name]
-  implicit val stcEnc: Encoder[String ## Color] = taggedEncoder[String, Color]
-  implicit val stcDec: Decoder[String ## Color] = taggedDecoder[String, Color]
-  implicit val itsEnc: Encoder[Int ## Size] = taggedEncoder[Int, Size]
-  implicit val itsDec: Decoder[Int ## Size] = taggedDecoder[Int, Size]
+  type SizeInt = Int with Tag[Size]
+  implicit val sizeTag: CanTag[SizeInt] = new CanTag[SizeInt] {}
+  implicit lazy val (sizeEnc, sizeDec) = taggedEncDec[Int, Size]
 }
+
+// TODO: solve boilerplate

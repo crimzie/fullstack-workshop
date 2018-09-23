@@ -1,16 +1,16 @@
 package com.crimzie.workshop.model
 
-import io.circe.{Decoder, ObjectEncoder}
-import io.circe.generic.semiauto
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
 
 case class Cat(
-    id: String ## Id,
-    name: String ## Name,
-    color: String ## Color,
-    size: Int ## Size,
+    id: IdStr,
+    name: NameStr,
+    color: ColorStr,
+    size: SizeInt,
 )
 
 object Cat {
-  implicit val enc: ObjectEncoder[Cat] = semiauto.deriveEncoder[Cat]
-  implicit val dec: Decoder[Cat] = semiauto.deriveDecoder[Cat]
+  implicit val catEnc: Encoder[Cat] = deriveEncoder[Cat]
+  implicit val catDec: Decoder[Cat] = deriveDecoder[Cat]
 }

@@ -5,16 +5,21 @@ import monix.eval.Task
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-trait RunAsync[F[_]] {
-  def toFuture[A, B](f: A => F[B]): A => Future[B]
+trait RunAsync[A[_]] {
+  def toFuture[B](a: A[B]): Future[B]
 }
 
 object RunAsync {
-  def apply[F[_]](implicit F: RunAsync[F]): RunAsync[F] = F
+  def apply[A[_]](implicit ev: RunAsync[A]): RunAsync[A] = ev
 
-  import monix.execution.Scheduler.Implicits.global
+  implicit class RunAsyncOps[A[_] : RunAsync, B](lhs: A[B]) {
+    def future: Future[B] = apply[A].toFuture(lhs)
+  }
 
   implicit val taskAsync: RunAsync[Task] = new RunAsync[Task] {
-    override def toFuture[A, B](f: A => Task[B]): A => Future[B] = f(_).runAsync
+
+    import monix.execution.Scheduler.Implicits.global
+
+    override def toFuture[A](x: Task[A]): Future[A] = x.runAsync
   }
 }

@@ -3,7 +3,7 @@ package com.crimzie.workshop.services
 import cats.effect.{Effect, IO, LiftIO}
 import com.crimzie.workshop.api.Api
 import endpoints.algebra.Documentation
-import endpoints.xhr.{Endpoints, JsonEntitiesFromCodec}
+import endpoints.xhr
 import monix.execution.Scheduler
 import org.scalajs.dom.XMLHttpRequest
 import outwatch.Pipe
@@ -11,8 +11,8 @@ import outwatch.Pipe
 import scala.language.{higherKinds, postfixOps}
 import scala.scalajs.js
 
-class ApiEndpoints[F[_]: LiftIO: Effect]
-  extends Api with Endpoints with JsonEntitiesFromCodec {
+class ApiEndpoints[F[_] : LiftIO : Effect]
+  extends Api with xhr.Endpoints  with xhr.JsonEntitiesFromCodec {
   override type Result[A] = F[A]
 
   override def endpoint[A, B](
