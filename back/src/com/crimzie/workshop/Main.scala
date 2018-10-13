@@ -1,10 +1,10 @@
 package com.crimzie.workshop
 
-import com.crimzie.workshop.model._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
-import com.crimzie.workshop.daos.{CatsDao, CatsMemDao}
+import com.crimzie.workshop.daos.CatsMemDao
+import com.crimzie.workshop.model._
 import com.crimzie.workshop.services.ApiServer
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler.Implicits.global
@@ -13,12 +13,15 @@ import scala.io.StdIn
 
 object Main extends App {
   implicit val system: ActorSystem = ActorSystem()
-  implicit val materializer = ActorMaterializer()
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   for {
     mem <- MVar(Map(
-      "user".tag[User] -> Seq(
-        Cat("001" ## Id, "Fluffy" ## Name, "White" ## Color, 3.0 ## Volume),
+      "user".tag[User] -> Seq(Cat(
+        "001".tag[Id],
+        "Fluffy".tag[Name],
+        "White".tag[Color],
+        3.0.tag[Volume]),
       )).withDefaultValue(Seq.empty)).runAsync
     catsDao = new CatsMemDao[Task](mem)
     apiRoutes = ApiServer.routes(catsDao)

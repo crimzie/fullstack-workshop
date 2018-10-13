@@ -4,6 +4,7 @@ import monix.eval.Task
 import monix.execution.Scheduler
 
 import scala.concurrent.Future
+import scala.language.higherKinds
 
 trait CanRunFuture[A[_]] {
   def future[B](a: A[B]): Future[B]
@@ -19,5 +20,5 @@ object CanRunFuture {
   implicit def taskCanRunFuture(implicit sc: Scheduler): CanRunFuture[Task] =
     new CanRunFuture[Task] {
       override def future[B](a: Task[B]): Future[B] = a.runAsync
-  }
+    }
 }

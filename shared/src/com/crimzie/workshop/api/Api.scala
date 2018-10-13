@@ -3,6 +3,7 @@ package api
 
 import com.crimzie.workshop.model._
 import endpoints.algebra
+import io.circe.generic.auto._
 
 trait Api extends algebra.Endpoints with algebra.circe.JsonEntitiesFromCodec {
   private val catsPath: Path[Unit] = path / "cats"
